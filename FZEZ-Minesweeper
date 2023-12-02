@@ -54,19 +54,16 @@ class Minesweeper:
                     "Congratulations", "You win! All mines have been flagged."
                 )
                 self.restart_game()
-
     def reveal_cell(self, row, col):
+    if 0 <= row < self.size and 0 <= col < self.size:
         button = self.buttons[row][col]
-        if (
-            0 <= row < self.size
-            and 0 <= col < self.size
-            and button["state"] != "disabled"
-        ):
+        if button["state"] != "disabled":
             button.config(text=str(self.board[row][col]), state="disabled")
             if self.board[row][col] == 0:
                 for i in range(-1, 2):
                     for j in range(-1, 2):
                         self.reveal_cell(row + i, col + j)
+
 
     def flag(self, event, row, col):
         button = event.widget
