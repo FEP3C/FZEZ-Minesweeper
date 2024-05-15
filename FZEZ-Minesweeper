@@ -1,106 +1,163 @@
-import tkinter as tk
-from tkinter import messagebox
+import pygame
 import random
+import sys
+import time
 
-class Minesweeper:
-    def __init__(self, master, size, num_mines):
-        self.master = master
-        self.size = size
-        self.num_mines = num_mines
-        self.create_widgets()
-        self.create_board()
+# 初始化Pygame
+pygame.init()
 
-    def create_widgets(self):
-        self.buttons = []
-        for i in range(self.size):
-            row = []
-            for j in range(self.size):
-                button = tk.Button(self.master, width=2, height=1)
-                button.grid(row=i, column=j)
-                button.bind("<Button-1>", lambda event, i=i, j=j: self.reveal(event, i, j))
-                button.bind("<Button-3>", lambda event, i=i, j=j: self.flag(event, i, j))
-                row.append(button)
-            self.buttons.append(row)
+# 定义颜色
+WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+GRAY = (128, 128, 128)
+DARK_GRAY = (169, 169, 169)
+RED = (255, 0, 0)
 
-    def create_board(self):
-        self.board = [[0 for _ in range(self.size)] for _ in range(self.size)]
-        self.mines = random.sample(range(self.size * self.size), self.num_mines)
-        for mine in self.mines:
-            row = mine // self.size
-            col = mine % self.size
-            self.board[row][col] = -1
-            for i in range(-1, 2):
-                for j in range(-1, 2):
-                    if (
-                        0 <= row + i < self.size
-                        and 0 <= col + j < self.size
-                        and self.board[row + i][col + j] != -1
-                    ):
-                        self.board[row + i][col + j] += 1
+# 定义屏幕大小和方块大小
+WIDTH, HEIGHT = 800, 600
+TILE_SIZE = 20
+COLUMNS = WIDTH // TILE_SIZE
+ROWS = (HEIGHT - 40) // TILE_SIZE
+MINES_COUNT = 40
 
-    def reveal(self, event, row, col):
-        button = event.widget
-        if self.board[row][col] == -1:
-            button.config(text="*", state="disabled")
-            messagebox.showinfo("Game Over", "You hit a mine! Game over.")
-            self.restart_game()
-        else:
-            self.reveal_cell(row, col)
-            if all(
-                all(button["state"] == "disabled" for button in row)
-                for row in self.buttons
-            ):
-                messagebox.showinfo(
-                    "Congratulations", "You win! All mines have been flagged."
-                )
-                self.restart_game()
-    def reveal_cell(self, row, col):
-    if 0 <= row < self.size and 0 <= col < self.size:
-        button = self.buttons[row][col]
-        if button["state"] != "disabled":
-            button.config(text=str(self.board[row][col]), state="disabled")
-            if self.board[row][col] == 0:
-                for i in range(-1, 2):
-                    for j in range(-1, 2):
-                        self.reveal_cell(row + i, col + j)
+# 初始化屏幕
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption('扫雷')
 
+# 加载字体
+font = pygame.font.Font(None, 36)
+small_font = pygame.font.Font(None, 24)
 
-    def flag(self, event, row, col):
-        button = event.widget
-        if button["text"] == "":
-            button.config(text="F")
-        elif button["text"] == "F":
-            button.config(text="")
-    
-    def restart_game(self):
-        self.master.destroy()
-        start_game()
+# 定义全局变量
+grid = []
+flags = []
+revealed = []
+mines = []
+first_click = True
+start_time = None
+game_over = False
+mines_left = MINES_COUNT
 
-def start_game():
-    root = tk.Tk()
-    root.title("FZEZ-Minesweeper")
-    label = tk.Label(root, text="Choose difficulty level:")
-    label.pack()
+def create_grid():
+    global grid, mines, flags, revealed, first_click, start_time, game_over, mines_left
+    grid = [[0 for _ in range(COLUMNS)] for _ in range(ROWS)]
+    flags = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
+    revealed = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
+    mines = []
+    first_click = True
+    start_time = None
+    game_over = False
+    mines_left = MINES_COUNT
 
-    def start_game_with_difficulty(size, num_mines):
-        root.destroy()
-        game = tk.Tk()
-        Minesweeper(game, size, num_mines)
-        game.mainloop()
+    # 随机放置地雷
+    while len(mines) < MINES_COUNT:
+        x, y = random.randint(0, COLUMNS - 1), random.randint(0, ROWS - 1)
+        if (x, y) not in mines:
+            mines.append((x, y))
+            grid[y][x] = -1
 
-    simple_button = tk.Button(
-        root, text="Simple", command=lambda: start_game_with_difficulty(10, 10)
-    )
-    simple_button.pack()
-    medium_button = tk.Button(
-        root, text="Medium", command=lambda: start_game_with_difficulty(16, 20)
-    )
-    medium_button.pack()
-    complex_button = tk.Button(
-        root, text="Complex", command=lambda: start_game_with_difficulty(25, 40)
-    )
-    complex_button.pack()
+    # 计算周围地雷数量
+    for y in range(ROWS):
+        for x in range(COLUMNS):
+            if grid[y][x] == -1:
+                continue
+            count = sum((grid[y + dy][x + dx] == -1)
+                        for dx in [-1, 0, 1] for dy in [-1, 0, 1]
+                        if 0 <= x + dx < COLUMNS and 0 <= y + dy < ROWS)
+            grid[y][x] = count
 
-    root.mainloop()
+def draw_grid():
+    for y in range(ROWS):
+        for x in range(COLUMNS):
+            rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE + 40, TILE_SIZE, TILE_SIZE)
+            if revealed[y][x]:
+                if grid[y][x] == -1:
+                    pygame.draw.rect(screen, RED, rect)
+                else:
+                    pygame.draw.rect(screen, WHITE, rect)
+                    if grid[y][x] > 0:
+                        text = font.render(str(grid[y][x]), True, BLACK)
+                        screen.blit(text, (x * TILE_SIZE + 5, y * TILE_SIZE + 40))
+            else:
+                pygame.draw.rect(screen, GRAY, rect)
+                if flags[y][x]:
+                    pygame.draw.circle(screen, RED, rect.center, TILE_SIZE // 4)
+            pygame.draw.rect(screen, BLACK, rect, 1)
 
-start_game()
+def reveal_tile(x, y):
+    if revealed[y][x] or flags[y][x]:
+        return
+    revealed[y][x] = True
+    if grid[y][x] == -1:
+        return
+    if grid[y][x] == 0:
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < COLUMNS and 0 <= ny < ROWS:
+                    reveal_tile(nx, ny)
+
+def check_win():
+    for y in range(ROWS):
+        for x in range(COLUMNS):
+            if grid[y][x] != -1 and not revealed[y][x]:
+                return False
+    return True
+
+def main():
+    global first_click, start_time, game_over, mines_left
+
+    create_grid()
+    running = True
+    while running:
+        screen.fill(DARK_GRAY)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+                x, y = event.pos
+                x //= TILE_SIZE
+                y = (y - 40) // TILE_SIZE
+                if 0 <= x < COLUMNS and 0 <= y < ROWS:
+                    if event.button == 1:  # 左键
+                        if first_click:
+                            first_click = False
+                            start_time = time.time()
+                            while (x, y) in mines:
+                                create_grid()
+                        if grid[y][x] == -1:
+                            game_over = True
+                        else:
+                            reveal_tile(x, y)
+                            if check_win():
+                                game_over = True
+                    elif event.button == 3:  # 右键
+                        if not revealed[y][x]:
+                            flags[y][x] = not flags[y][x]
+                            mines_left += -1 if flags[y][x] else 1
+
+        draw_grid()
+
+        if start_time:
+            elapsed_time = int(time.time() - start_time)
+            timer_text = small_font.render(f'Time: {elapsed_time}', True, WHITE)
+            screen.blit(timer_text, (10, 10))
+
+        mines_left_text = small_font.render(f'Mines left: {mines_left}', True, WHITE)
+        screen.blit(mines_left_text, (WIDTH - 150, 10))
+
+        if game_over:
+            if check_win():
+                game_over_text = font.render('You Win!', True, WHITE)
+            else:
+                game_over_text = font.render('Game Over', True, WHITE)
+            screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2 - game_over_text.get_height() // 2))
+
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == '__main__':
+    main()
