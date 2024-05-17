@@ -22,7 +22,7 @@ MINES_COUNT = 40
 
 # 初始化屏幕
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption('扫雷')
+pygame.display.set_caption('福州二中扫雷游戏')
 
 # 加载字体
 font = pygame.font.Font(None, 36)
