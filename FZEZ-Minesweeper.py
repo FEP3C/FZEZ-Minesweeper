@@ -1,7 +1,9 @@
-import pygame
 import random
+import pygame 
 import sys
 import time
+from pygame.locals import *
+from tkinter import Tk, messagebox
 
 # 初始化Pygame
 pygame.init()
@@ -12,13 +14,11 @@ BLACK = (0, 0, 0)
 GRAY = (128, 128, 128)
 DARK_GRAY = (169, 169, 169)
 RED = (255, 0, 0)
+BLUE = (0, 0, 255)
 
 # 定义屏幕大小和方块大小
 WIDTH, HEIGHT = 800, 600
 TILE_SIZE = 20
-COLUMNS = WIDTH // TILE_SIZE
-ROWS = (HEIGHT - 40) // TILE_SIZE
-MINES_COUNT = 40
 
 # 初始化屏幕
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -36,9 +36,14 @@ mines = []
 first_click = True
 start_time = None
 game_over = False
-mines_left = MINES_COUNT
+mines_left = 0
+COLUMNS = 0
+ROWS = 0
+difficulty = 'medium'
+MINES_COUNT = 0
 
 def create_grid():
+    """ Create a new grid with mines """
     global grid, mines, flags, revealed, first_click, start_time, game_over, mines_left
     grid = [[0 for _ in range(COLUMNS)] for _ in range(ROWS)]
     flags = [[False for _ in range(COLUMNS)] for _ in range(ROWS)]
@@ -67,6 +72,7 @@ def create_grid():
             grid[y][x] = count
 
 def draw_grid():
+    """ Draw the grid on the screen """
     for y in range(ROWS):
         for x in range(COLUMNS):
             rect = pygame.Rect(x * TILE_SIZE, y * TILE_SIZE + 40, TILE_SIZE, TILE_SIZE)
@@ -85,6 +91,7 @@ def draw_grid():
             pygame.draw.rect(screen, BLACK, rect, 1)
 
 def reveal_tile(x, y):
+    """ Reveal a tile and its neighbors if they are not already revealed """
     if revealed[y][x] or flags[y][x]:
         return
     revealed[y][x] = True
@@ -98,14 +105,73 @@ def reveal_tile(x, y):
                     reveal_tile(nx, ny)
 
 def check_win():
+    """ Check if all non-mine tiles have been revealed """
     for y in range(ROWS):
         for x in range(COLUMNS):
             if grid[y][x] != -1 and not revealed[y][x]:
                 return False
     return True
 
+def show_message_box(message):
+    """ Show a message box with a yes/no option """
+    root = Tk()
+    root.withdraw()  # 隐藏主窗口
+    result = messagebox.askyesno("Game Over", message)
+    root.destroy()  # 销毁主窗口
+    return result
+
+def draw_menu():
+    """ Draw the menu screen """
+    screen.fill(BLUE)
+    title_text = font.render('Choose Difficulty', True, WHITE)
+    screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 4))
+
+    easy_text = font.render('1. Easy', True, WHITE)
+    screen.blit(easy_text, (WIDTH // 2 - easy_text.get_width() // 2, HEIGHT // 2 - 60))
+
+    medium_text = font.render('2. Medium', True, WHITE)
+    screen.blit(medium_text, (WIDTH // 2 - medium_text.get_width() // 2, HEIGHT // 2))
+
+    hard_text = font.render('3. Hard', True, WHITE)
+    screen.blit(hard_text, (WIDTH // 2 - hard_text.get_width() // 2, HEIGHT // 2 + 60))
+
+    pygame.display.flip()
+
+def set_difficulty(level):
+    """ Set the difficulty level """
+    global MINES_COUNT, COLUMNS, ROWS, difficulty
+    if level == 'easy':
+        COLUMNS, ROWS = 10, 10
+        MINES_COUNT = 10
+    elif level == 'medium':
+        COLUMNS, ROWS = 20, 15
+        MINES_COUNT = 40
+    elif level == 'hard':
+        COLUMNS, ROWS = 30, 20
+        MINES_COUNT = 99
+    difficulty = level
+
 def main():
+    """ Main game loop """
     global first_click, start_time, game_over, mines_left
+
+    in_menu = True
+    while in_menu:
+        draw_menu()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    set_difficulty('easy')
+                    in_menu = False
+                elif event.key == pygame.K_2:
+                    set_difficulty('medium')
+                    in_menu = False
+                elif event.key == pygame.K_3:
+                    set_difficulty('hard')
+                    in_menu = False
 
     create_grid()
     running = True
@@ -149,10 +215,14 @@ def main():
 
         if game_over:
             if check_win():
-                game_over_text = font.render('You Win!', True, WHITE)
+                message = "You Win! Do you want to play again?"
             else:
-                game_over_text = font.render('Game Over', True, WHITE)
-            screen.blit(game_over_text, (WIDTH // 2 - game_over_text.get_width() // 2, HEIGHT // 2 - game_over_text.get_height() // 2))
+                message = "Game Over! Do you want to play again?"
+
+            if show_message_box(message):
+                main()  # Restart the game
+            else:
+                running = False
 
         pygame.display.flip()
 
