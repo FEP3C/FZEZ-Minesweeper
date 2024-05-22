@@ -24,7 +24,7 @@ FZEZ-Minesweeper 是一款单人益智游戏，玩家的目标是清除包含隐
 ```
 git clone https://github.com/your-username/FZEZ-Minesweeper.git
 ```
-    进入根目录
+进入根目录
 ```
 bash
 cd FZEZ-Minesweeper
