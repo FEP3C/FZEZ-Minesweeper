@@ -1,0 +1,3 @@
+easy:26
+medium:inf
+hard:inf
