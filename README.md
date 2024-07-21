@@ -17,6 +17,7 @@ FZEZ-Minesweeper 是一款单人益智游戏，玩家的目标是清除包含隐
 请确定如下文件是否被安装：
 
 - Python 3.x
+- pygame模块
 
 ## Installation
 
